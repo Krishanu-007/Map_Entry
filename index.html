@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Path Map Viewer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"/>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        .form-container {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.15); /* More transparent */
+            backdrop-filter: blur(10px); /* Glassmorphism effect */
+            border-radius: 20px;
+            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .form-container label {
+            margin-right: 10px;
+            color: black;
+            font-weight: normal;
+        }
+        input[type="text"] {
+            padding: 8px 12px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            background-color: rgba(255, 255, 255, 0.3); /* Transparent background */
+            color: black;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #8B1A1A; /* Dark wine red color */
+            border: none;
+            color: white;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            opacity: 0.8;
+            font-size: 14px;
+        }
+        button:hover {
+            opacity: 1; /* Make the button fully opaque on hover */
+        }
+    </style>
+</head>
+<body>
+
+<div class="form-container">
+    <label for="common_id">Tracker ID:</label>
+    <input type="text" id="common_id" name="common_id" required>
+    <button type="submit" id="fetchButton">Fetch Path</button>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+
+<script>
+    // Initialize the map and center it at India
+    var map = L.map('map').setView([20.5937, 78.9629], 5);  // Centered at India with zoom level 5
+
+    // Set up OpenStreetMap tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Variable to store the path drawn
+    var path = [];
+    var currentPosition = 0;
+
+    // Handle form submission
+    document.getElementById('fetchButton').addEventListener('click', function(event) {
+        event.preventDefault();
+
+        var commonId = document.getElementById('common_id').value;
+
+        // Clear previous path if any
+        if (path.length > 0) {
+            path.forEach(function(segment) {
+                segment.remove();
+            });
+            path = [];
+        }
+
+        // Start fetching data periodically
+        startFetchingData(commonId);
+    });
+
+    // Function to start fetching data periodically
+    function startFetchingData(commonId) {
+        // Fetch data every 5 seconds (for example)
+        var fetchInterval = setInterval(function() {
+            fetch(`http://127.0.0.1:8000/fetchData/${commonId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Backend Response:', data);
+
+                    if (data && data.path && Array.isArray(data.path) && data.path.length > 0) {
+                        // Append new data to the path and animate it
+                        addNewPathSegment(data.path);
+                    } else {
+                        console.log('No new path data available');
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching data: ", error);
+                    clearInterval(fetchInterval);  // Stop fetching if there's an error
+                    alert("Error fetching data. Please try again later.");
+                });
+        }, 5000);  // Fetch new data every 5 seconds
+    }
+
+    // Function to add new path segment and animate the drawing
+    function addNewPathSegment(newPath) {
+        let latLngs = newPath.map(coord => [coord[0], coord[1]]);  // Convert path coordinates
+
+        // First zoom the map to the maximum zoom level
+        var bounds = L.latLngBounds(latLngs);
+        map.fitBounds(bounds, { padding: [20, 20], maxZoom: 21 });  // Zoom in to the max level (21)
+
+        // Animate the new segment drawing after zooming
+        let i = currentPosition;
+        let interval = setInterval(function() {
+            if (i < latLngs.length - 1) {
+                // Draw a line segment from the previous point to the next point
+                var segment = L.polyline([latLngs[i], latLngs[i + 1]], { color: 'blue', weight: 4, opacity: 0.7 }).addTo(map);
+                path.push(segment); // Store the segment to clear later if needed
+                i++;
+                currentPosition = i;  // Update the current position
+            } else {
+                clearInterval(interval); // Stop when the last segment is drawn
+            }
+        }, 200); // Adjust the interval speed to control drawing animation speed
+    }
+</script>
+
+</body>
+</html>

@@ -108,7 +108,7 @@
     function startFetchingData(commonId) {
         // Fetch data every 5 seconds (for example)
         var fetchInterval = setInterval(function() {
-            fetch(`http://127.0.0.1:8000/fetchData/${commonId}`)
+            fetch(`https://map-viewer.up.railway.app/fetchData/${commonId}`)
                 .then(response => response.json())
                 .then(data => {
                     console.log('Backend Response:', data);

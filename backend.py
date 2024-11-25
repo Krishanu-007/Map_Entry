@@ -2,7 +2,9 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
+from datetime import datetime
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 app = FastAPI()
 
@@ -15,7 +17,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Retrieve MongoDB URI from environment variable (no fallback needed)
+# Retrieve MongoDB URI from environment variable
 mongo_uri = os.getenv("MONGO_URI")
 
 if not mongo_uri:
@@ -25,7 +27,7 @@ if not mongo_uri:
 client = AsyncIOMotorClient(mongo_uri)
 
 db = client.Backend_Test  
-collection = db.Trial_Test
+collection = db.Trial_Test2
 
 # Data model for location
 class locData(BaseModel):
@@ -42,7 +44,8 @@ async def send_data(data: locData):
     geoJsonData = {
         "common_id": data.common_id,
         "type": "Point",
-        "coordinates": [data.latitude, data.longitude]
+        "coordinates": [data.latitude, data.longitude],
+        "timestamp": datetime.utcnow()  # Add the current UTC timestamp
     }
 
     try:
@@ -51,7 +54,7 @@ async def send_data(data: locData):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving data: {str(e)}")
 
-# API endpoint to fetch location data by common_id (updated to return a series of coordinates)
+# API endpoint to fetch location data by common_id
 @app.get("/fetchData/{common_id}")
 async def fetch_data(common_id: str):
     try:
@@ -73,8 +76,6 @@ async def fetch_data(common_id: str):
         raise HTTPException(status_code=500, detail=f"Error fetching data: {str(e)}")
 
 # Serve the frontend HTML file
-from fastapi.responses import FileResponse
-
 @app.get("/")
 def serve_frontend():
     return FileResponse("index.html")
